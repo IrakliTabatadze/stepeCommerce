@@ -7,7 +7,8 @@
     <div class="card-body">
       <h5 class="card-title">Order #{{ order.pk }}</h5>
       <p class="card-text">
-        <strong>Order Date:</strong> <br>
+          <strong>Address: {{ order.order_address.city }},{{ order.order_address.region }}, {{ order.order_address.street }}</strong><br>
+        <strong>Order Date: {{ order.created_at }}</strong> <br>
         <strong>Status:</strong> {{ order.payment_status }}<br>
         <strong>Total Amount:</strong> ${{ order.total_amount }}
       </p>

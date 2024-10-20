@@ -20,7 +20,7 @@
             <div class="card-footer text-center">
                 {% if user.is_authenticated %}
                     <a href="{% url 'orders:add_cart_item' product.id %}" class="btn btn-primary">Add to Cart</a>
-                {% endif %}
+                {% endif %}|
                 <a href="{% url 'shop:detail' product.id %}" class="btn btn-primary">Go To Detail</a>
             </div>
         </div>

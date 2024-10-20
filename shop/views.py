@@ -30,6 +30,8 @@ class ProductView(TemplateView):
 
         # Paginate the filtered products
         paginator = Paginator(products, 9)
+
+
         page_number = request.GET.get('page')
 
         try:

@@ -4,7 +4,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.views.generic import TemplateView, DetailView, View, DeleteView, UpdateView, ListView, FormView
 
 from orders.forms import AddressForm
-from orders.models import Cart, CartItem, Order, OrderItem
+from orders.models import Cart, CartItem, Order, OrderItem, Address
 from shop.models import Product
 from django.urls import reverse_lazy
 
@@ -111,20 +111,22 @@ class OrderConfirmationView(LoginRequiredMixin, ListView, FormView):
         return CartItem.objects.filter(cart=cart)
 
     def form_valid(self, form):
+        # Save the address and store it in the session for later use in AddOrderView
         address = form.save()
+        self.request.session['address_id'] = address.id
         return redirect(self.get_success_url())
 
     def get_context_data(self, *, object_list=None, **kwargs):
         context = super().get_context_data(**kwargs)
         cart_items = self.get_queryset()
+
         if self.request.method == 'GET':
             context['form'] = self.form_class()
-            total_amount = sum(item.product.price * item.quantity for item in cart_items)
-            context['total_amount'] = total_amount
 
+        total_amount = sum(item.product.price * item.quantity for item in cart_items)
+        context['total_amount'] = total_amount
 
         return context
-
 
 class AddOrderView(LoginRequiredMixin, View):
     login_url = reverse_lazy('users:login')
@@ -137,21 +139,34 @@ class AddOrderView(LoginRequiredMixin, View):
         if not cart_items:
             return redirect('orders:cart')
 
-        order = Order.objects.create(user=user, total_amount=0)
+        # Retrieve the address saved during order confirmation
+        address_id = request.session.get('address_id')
+        if not address_id:
+            return redirect('orders:order_confirmation')  # Redirect to the confirmation page if address is missing
+        address = get_object_or_404(Address, id=address_id)
+
+        # Create a new order with the address
+        order = Order.objects.create(user=user, order_address=address, total_amount=0)
         total_amount = 0
 
+        # Create OrderItems and update total amount
         for item in cart_items:
-            OrderItem.objects.create(order=order, product=item.product, price=item.product.price,
-                                     quantity=item.quantity)
+            OrderItem.objects.create(order=order, product=item.product, price=item.product.price, quantity=item.quantity)
             total_amount += item.product.price * item.quantity
 
+            # Update product stock
             product = item.product
             product.stock -= item.quantity
-
             product.save()
+
+            # Remove cart item
             item.delete()
 
-        order.total_amount += total_amount
+        # Update order total amount
+        order.total_amount = total_amount
         order.save()
+
+        # Clear the address from the session after the order is placed
+        del request.session['address_id']
 
         return redirect('orders:cart')
