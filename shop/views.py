@@ -1,24 +1,22 @@
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.views.generic import TemplateView, DetailView
 from shop.models import Product, Category
 from django.db.models import Q
+from .forms import ProductForm
 
 
 class AboutUsView(TemplateView):
     template_name = 'shop/about.html'
-from collections import defaultdict
-from django.db.models import Q
 
-from itertools import groupby
-from django.db.models import Q
+
 
 class ProductView(TemplateView):
     template_name = 'shop/index.html'
 
     def get(self, request, *args, **kwargs):
         query = request.GET.get('query')
-        selected_categories = request.GET.getlist('category')  # List of selected category IDs
+        selected_categories = request.GET.getlist('category')
 
         products = Product.objects.all()
 
@@ -28,7 +26,6 @@ class ProductView(TemplateView):
         if selected_categories:
             products = products.filter(category__in=selected_categories).distinct()
 
-        # Paginate the filtered products
         paginator = Paginator(products, 9)
 
 
@@ -41,7 +38,7 @@ class ProductView(TemplateView):
         except EmptyPage:
             products = paginator.page(paginator.num_pages)
 
-        # Fetch all categories and group by category_type
+
         categories = Category.objects.all().order_by('category_type')
         categories_by_type = {}
         for category in categories:
@@ -52,8 +49,8 @@ class ProductView(TemplateView):
 
         return render(request, self.template_name, {
             'products': products,
-            'categories_by_type': categories_by_type,  # Grouped categories by type
-            'selected_categories': selected_categories,  # Pass selected categories for pre-checking
+            'categories_by_type': categories_by_type,
+            'selected_categories': selected_categories,
         })
 
 
@@ -66,9 +63,23 @@ class ProductDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         product = self.object
-        # Fetch related products from the same categories, excluding the current product
         related_products = Product.objects.filter(
             category__in=product.category.all()
         ).exclude(id=product.id).distinct()[:4]
         context['related_products'] = related_products
         return context
+
+
+def add_product(request):
+
+    if request.method == 'POST':
+        form = ProductForm(request.POST)
+        if form.is_valid():
+            product = form.save(commit=False)
+            product.save()
+            form.save_m2m()
+            return redirect('shop:index')
+    else:
+        form = ProductForm()
+
+        return render(request, 'shop/add_product.html', {'form': form})
